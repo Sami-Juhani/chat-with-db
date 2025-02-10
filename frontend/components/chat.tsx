@@ -74,7 +74,7 @@ export default function ChatBot() {
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (isGenerating || !input) return;
+      if (isGenerating || !input || !user) return;
       setIsGenerating(true);
       onSubmit(e);
     }
