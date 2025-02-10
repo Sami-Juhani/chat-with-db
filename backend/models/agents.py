@@ -1,0 +1,170 @@
+import asyncio
+from typing import List
+
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_community.utilities import SQLDatabase
+from langchain_community.agent_toolkits import create_sql_agent
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.prompts.chat import ChatPromptTemplate
+from langchain_postgres import PGVector
+
+
+class RagSqlAgent:
+    """
+    A class that integrates RAG (Retrieval-Augmented Generation) with SQL database querying capabilities.
+
+    This class is designed to handle the interaction between a language model (LLM), a SQL database,
+    and a vector database for document retrieval. It allows for the processing of files,
+    querying of SQL databases, and merging of responses from both RAG and SQL sources.
+
+    Attributes:
+        llm: The language model used for generating responses.
+        sql_db: An instance of SQLDatabase for executing SQL queries.
+        vector_db: A vector database for storing and retrieving document embeddings.
+        embeddings: The embeddings model used for vector representation.
+        collection_name: The name of the collection in the vector database.
+        agent_type: The type of agent being used (e.g., "openai-tools").
+
+    Methods:
+        load_files(files: List[str]):
+            Loads and processes PDF files, splitting their content into manageable chunks for storage in the vector database.
+
+        _ask_use_sql_db(question: str):
+            Queries the SQL database with the provided question and returns the response.
+
+        _ask_use_rag(question: str):
+            Uses the vector database to retrieve relevant documents based on the question and generates a response.
+
+        ask_question(user: Union['ADMIN', 'USER'], question: str):
+            Handles the logic for querying either the SQL database or the RAG system based on the user type.
+    """
+
+    def __init__(self, llm, sql_db_uri, vector_db_uri, embeddings, collection_name, agent_type):
+        self.llm = llm
+        self.sql_db = SQLDatabase.from_uri(sql_db_uri)
+        self.vector_db = PGVector(
+            embeddings=embeddings,
+            collection_name=collection_name,
+            connection=vector_db_uri,
+            use_jsonb=True,
+        )
+        self.agent_type = agent_type
+
+    def load_files(self, files: List[str]):
+        """
+        Load PDF files into the system and add their contents to the vector database.
+
+        Args:
+            files (List[str]): A list of file paths to be loaded.
+
+        Raises:
+            ValueError: If a file is not a PDF.
+        """
+        for file in files:
+            # Check the file extension
+            if not file.lower().endswith('.pdf'):
+                raise ValueError(
+                    f"Unsupported file type: {file}. Only PDF files are supported.")
+
+            loader = PyPDFLoader(file)
+            pages = []
+            for page in loader.lazy_load():
+                pages.append(page)
+
+            text_splitter = CharacterTextSplitter(
+                chunk_size=1000, chunk_overlap=200)
+            docs = text_splitter.split_documents(pages)
+            self.vector_db.add_documents(docs)
+
+    async def _ask_use_sql_db(self, question: str):
+        agent_executor = create_sql_agent(
+            llm=self.llm, db=self.sql_db, agent_type=self.agent_type)
+        response = agent_executor.invoke({"input": question})
+        return response["output"]
+
+    async def _ask_use_rag(self, question: str, user):
+        resources = self.vector_db.similarity_search(question, k=3)
+        resource_texts = [resource.page_content for resource in resources]
+        context = " ".join(resource_texts)
+        orders = user['orders']
+
+        template = f"""
+        Answer the question based on the context below. If there is no relevant information, just say "I don't know". You also have access to users order data below. If the user queries them, you can provide the relevant information.
+
+        Context:
+        {{context}}
+
+        Question: 
+        {{question}}
+
+        Orders: 
+        {{orders}}
+        """
+
+        prompt = ChatPromptTemplate.from_template(template)
+        chain = prompt | self.llm
+
+        response = chain.invoke(
+            {"question": question, "context": context, "orders": orders})
+
+        return response.content
+
+    def _merge_rag_and_sql_reponses(self, rag_response: str, sql_response: str):
+        """
+        Merges the responses from the RAG system and the SQL database.
+
+        This method takes the responses from the RAG system and the SQL database,
+        and uses a language model to combine them into a single, coherent answer.
+        If either response contains "I don't know" or invalid data, it is ignored
+        and only the valid information is used.
+
+        Parameters:
+            rag_response (str): The response generated by the RAG system.
+            sql_response (str): The response retrieved from the SQL database.
+
+        Returns:
+            str: The final merged response content generated by the language model.
+        """
+        template = f"""
+        Combine the RAG response and the SQL response into a single, coherent answer. If either response contains "I don't know" or invalid data, ignore it and use only the valid information. Ensure the response is naturally structured without explicitly stating that data was merged and valid.
+
+        Rag response:
+        {rag_response}
+
+        SQL response:
+        {sql_response}
+        """
+
+        prompt = ChatPromptTemplate.from_template(template)
+        chain = prompt | self.llm
+
+        response = chain.invoke(
+            {"rag_response": rag_response, "sql_response": sql_response})
+
+        return response.content
+
+    async def ask(self, user, question: str) -> str:
+        """"
+        Ask the agent the question and return the response.
+
+        Args:
+            user (dict): The user object containing the user_id and type.
+            question (str): The question to ask the agent.
+
+        Returns:
+            str: The response from the agent.
+        """
+        if user['type'] == "ADMIN":
+            sql_response, rag_response = await asyncio.gather(
+                self._ask_use_sql_db(question),
+                self._ask_use_rag(question, user)
+            )
+
+            merged_response = self._merge_rag_and_sql_reponses(
+                rag_response, sql_response)
+
+            return merged_response
+        else:
+            rag_response = await self._ask_use_rag(question, user)
+
+            return rag_response

@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model headgear {
+  headgear_id Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  description String?
+  price       Int
+  quantity    Int
+  type        String?   @db.VarChar(50)
+  color       String?   @db.VarChar(50)
+  brand       String?   @db.VarChar(100)
+  img_url     String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model order_items {
+  order_item_id    Int     @id @default(autoincrement())
+  order_id         Int?
+  product_name     String  @db.VarChar(100)
+  product_category String  @db.VarChar(50)
+  quantity         Int
+  price            Int 
+  img_url          String?
+  orders           orders? @relation(fields: [order_id], references: [order_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model orders {
+  order_id           Int           @id @default(autoincrement())
+  user_id            Int?
+  total_price        Int      
+  status             String?       @db.VarChar(50)
+  estimated_delivery DateTime?     @db.Timestamp(6)
+  created_at         DateTime?     @default(now()) @db.Timestamp(6)
+  order_items        order_items[]
+  users              users?        @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model pants {
+  pant_id     Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  description String?
+  price       Int   
+  quantity    Int
+  size        String?   @db.VarChar(10)
+  color       String?   @db.VarChar(50)
+  material    String?   @db.VarChar(100)
+  brand       String?   @db.VarChar(100)
+  img_url     String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model shirts {
+  shirt_id      Int       @id @default(autoincrement())
+  name          String    @db.VarChar(100)
+  description   String?
+  price         Int  
+  quantity      Int
+  size          String?   @db.VarChar(10)
+  color         String?   @db.VarChar(50)
+  sleeve_length String?   @db.VarChar(50)
+  brand         String?   @db.VarChar(100)
+  img_url       String?
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model shoes {
+  shoe_id     Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  description String?
+  price       Int   
+  quantity    Int
+  size        String?   @db.VarChar(10)
+  color       String?   @db.VarChar(50)
+  brand       String?   @db.VarChar(100)
+  img_url     String?
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+}
+
+enum UserType {
+  ADMIN
+  USER
+}
+
+model users {
+  user_id    Int       @id @default(autoincrement())
+  name       String    @db.VarChar(100)
+  email      String    @unique @db.VarChar(100)
+  password   String    @db.VarChar(100)
+  address    String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  orders     orders[]
+  type       UserType  @default(USER)
+}
