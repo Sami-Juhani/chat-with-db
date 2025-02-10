@@ -4,6 +4,8 @@ A modern web application that enables natural language interactions with databas
 
 This project explores AI automation techniques to query databases more efficiently, without requiring users to write SQL. Instead, users can interact with the database using natural language commands. The AI automation layer is powered by LangChain, a powerful AI automation library.
 
+![In action](.github/assets/ui.png)
+
 ### Test Credentials 🔑
 | Role  | Email | Password |
 |-------|--------|----------|
