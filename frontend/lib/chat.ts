@@ -5,7 +5,11 @@ export interface ChatMessage {
   content: string;
 }
 
-const baseApiUrl = process.env.NEXT_PUBLIC_BASE_API_URL;
+const baseApiUrl =
+  process.env.NODE_ENV === "production" ||
+  process.env.VERCEL_ENV === "production"
+    ? process.env.NEXT_PUBLIC_BASE_API_URL
+    : "http://127.0.0.1:5000";
 
 if (!baseApiUrl) {
   throw new Error("Environment variable BASE_API_URL is missing");
