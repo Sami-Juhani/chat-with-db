@@ -5,7 +5,7 @@ import { ProductCard } from "@/components/ui/product-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { A_Product, Products } from "@/lib/products";
 
-export default async function Home({ products }: { products: Products }) {
+export default function Home({ products }: { products: Products }) {
   const container = {
     hidden: { opacity: 0 },
     show: {
