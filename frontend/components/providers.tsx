@@ -10,8 +10,8 @@ import SuspendedPostHogPageView from "./posthog-pageview";
 export default function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (
-      process.env.NODE_ENV === "development" ||
-      process.env.VERCEL_ENV === "development"
+      process.env.NODE_ENV === "production" ||
+      process.env.VERCEL_ENV === "production"
     ) {
       const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
       const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -28,8 +28,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (
-    process.env.NODE_ENV === "development" ||
-    process.env.VERCEL_ENV === "development"
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production"
   ) {
     return (
       <PHProvider client={posthog}>
