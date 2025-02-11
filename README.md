@@ -17,7 +17,7 @@ This project explores AI automation techniques to query databases more efficient
 ### Frontend
 - Next.js
 - TypeScript
-- Radix UI components
+- Radix UI & Shandcn components
 - Prisma Client
 - Various UI libraries for enhanced user experience
 
@@ -129,7 +129,7 @@ The backend API will be available at `http://127.0.0.1:5000`
 
 ## Docker Support
 
-The project includes Docker configuration for both frontend and backend services. Use the provided Dockerfiles and docker-compose.yml for containerized deployment.
+The project includes Docker configuration for backend service. Use the provided Dockerfiles for containerized deployment.
 
 ## Next steps
 
