@@ -1,3 +1,4 @@
+import React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
@@ -5,8 +6,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/navbar";
 import ChatBot from "@/components/chat";
 import Database from "@/components/database";
+import Providers from "@/components/providers";
 
-import { AuthProvider } from "@/context/auth-context";
 import { getAllDatabase } from "@/lib/database";
 import "./globals.css";
 
@@ -27,13 +28,13 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>
+        <Providers>
           <Navbar />
           <Database data={db} />
           <ChatBot />
           <Toaster richColors position="top-center" />
           {children}
-        </AuthProvider>
+        </Providers>
       </body>
     </html>
   );
