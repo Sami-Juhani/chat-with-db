@@ -10,6 +10,7 @@ import getpass
 from dotenv import load_dotenv
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy.exc import OperationalError
 
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
@@ -39,7 +40,6 @@ embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 
 qa_agent = RagSqlAgent(llm=llm, sql_db_uri=db_uri, vector_db_uri=db_uri,
                        embeddings=embeddings, collection_name="trendwear", agent_type="openai-tools")
-
 
 ask_bp = Blueprint('ask_bp', __name__)
 
@@ -71,11 +71,19 @@ def ask_question():
 
         user_id = int(get_jwt_identity())
 
-        user_data = get_user_with_orders(user_id)
+        try:
+            user_data = get_user_with_orders(user_id)
 
-        if not user_data:
-            return jsonify({"error": "User not found"}), 404
+            if not user_data:
+                return jsonify({"error": "User not found"}), 404
 
-        response = asyncio.run(qa_agent.ask(user_data, question))
+            response = asyncio.run(qa_agent.ask(user_data, question))
+            return jsonify({"response": response})
 
-        return jsonify({"response": response})
+        except OperationalError as e:
+            # Handle database connection errors
+            print(f"Database connection error: {str(e)}")
+            return jsonify({"error": "Database connection error. Please try again."}), 503
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+            return jsonify({"error": "An unexpected error occurred"}), 500

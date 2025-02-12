@@ -14,6 +14,7 @@ from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy import create_engine, Column, Integer, String, Enum, DateTime, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, joinedload
+from sqlalchemy.pool import QueuePool
 
 # Load environment variables
 load_dotenv()
@@ -22,9 +23,56 @@ db_uri = os.getenv("DB_URI")
 if not db_uri:
     raise ValueError("DB_URI environment variable is not set")
 
-# Create engine without logging
-engine = create_engine(db_uri, echo=False)
-SessionLocal = sessionmaker(bind=engine)
+
+class DatabaseManager:
+    """
+    Singleton class for managing database connections.
+    """
+    _instance = None
+    _engine = None
+    _SessionLocal = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DatabaseManager, cls).__new__(cls)
+            cls._instance._initialize()
+        return cls._instance
+
+    def _initialize(self):
+        """Initialize database connection and session factory."""
+        if not self._engine:
+            self._engine = create_engine(
+                db_uri,
+                poolclass=QueuePool,
+                pool_size=5,
+                max_overflow=-1,
+                pool_timeout=30,
+                pool_recycle=1800,
+                echo=False
+            )
+            self._SessionLocal = sessionmaker(bind=self._engine)
+
+    @property
+    def engine(self):
+        """Get SQLAlchemy engine instance."""
+        return self._engine
+
+    @property
+    def SessionLocal(self):
+        """Get session factory."""
+        return self._SessionLocal
+
+    def get_session(self):
+        """Get a new database session."""
+        return self._SessionLocal()
+
+
+# Create global instance
+db = DatabaseManager()
+
+# Update existing engine and SessionLocal to use the singleton
+engine = db.engine
+SessionLocal = db.SessionLocal
 
 Base = declarative_base()
 
@@ -121,22 +169,19 @@ class OrderItem(Base, SerializerMixin):
 
 
 def get_user_by_email(email: str):
-    """Get user from Neon database by email"""
-    db = SessionLocal()
+    """Get user from database by email."""
+    session = db.get_session()
     try:
-        return db.query(User).filter(User.email == email).first()
-    except Exception as e:
-        print(f"Database error: {str(e)}")
-        raise
+        return session.query(User).filter(User.email == email).first()
     finally:
-        db.close()
+        session.close()
 
 
 def get_user_with_orders(user_id: int):
-    """Get user data including their orders"""
-    db = SessionLocal()
+    """Get user data including their orders."""
+    session = db.get_session()
     try:
-        user = db.query(User).options(
+        user = session.query(User).options(
             joinedload(User.orders).joinedload(Order.order_items)
         ).filter(User.user_id == user_id).first()
 
@@ -153,4 +198,4 @@ def get_user_with_orders(user_id: int):
         print(f"Database error: {str(e)}")
         raise
     finally:
-        db.close()
+        session.close()
