@@ -22,8 +22,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { getUser } from "@/lib/users";
+import { login } from "@/lib/users";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -32,7 +33,8 @@ const formSchema = z.object({
 
 export function LoginModal() {
   const [open, setOpen] = useState(false);
-  const { login, logout, user } = useAuth();
+  const { login: setAuthToken, logout, token } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,18 +45,23 @@ export function LoginModal() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const user = await getUser({
-      email: values.email,
-      password: values.password,
-    });
-    login(user);
-    setOpen(false);
+    try {
+      setIsLoading(true);
+      const response = await login(values.email, values.password);
+      setAuthToken(response.access_token);
+      setOpen(false);
+      toast.success("Successfully logged in!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to login");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {!user ? (
+        {!token ? (
           <Button>Login</Button>
         ) : (
           <Button onClick={logout}>Logout</Button>
@@ -82,10 +89,10 @@ export function LoginModal() {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                      <Mail className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Enter your email"
-                        className="pl-10"
+                        placeholder="your@email.com"
+                        className="pl-8"
                         {...field}
                       />
                     </div>
@@ -102,11 +109,11 @@ export function LoginModal() {
                   <FormLabel>Password</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                      <Lock className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="password"
-                        placeholder="Enter your password"
-                        className="pl-10"
+                        placeholder="••••••"
+                        className="pl-8"
                         {...field}
                       />
                     </div>
@@ -115,19 +122,11 @@ export function LoginModal() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
         </Form>
-        <div className="text-center text-sm text-muted-foreground">
-          <p>
-            Don&apos;t have an account?{" "}
-            <Button variant="link" className="p-0 h-auto font-semibold">
-              Sign up
-            </Button>
-          </p>
-        </div>
       </DialogContent>
     </Dialog>
   );

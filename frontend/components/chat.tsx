@@ -26,7 +26,7 @@ export default function ChatBot() {
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const { user } = useAuth();
+  const { token } = useAuth();
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -38,34 +38,32 @@ export default function ChatBot() {
   }, [messages]);
 
   useEffect(() => {
-    if (!user) {
+    if (!token) {
       setMessages([]);
       return;
     }
-  }, [user]);
+  }, [token]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user == null) return;
+    if (token == null) return;
 
     setMessages((prev) => [...prev, { role: "user", content: input }]);
     setInput("");
     setIsGenerating(true);
-    try {
-      const response = await askAI({ question: input, user: user });
 
-      if (!response) return;
-      setMessages((prev) => [...prev, response]);
-      setIsGenerating(false);
+    try {
+      const response = await askAI({
+        question: input,
+        token: token,
+      });
+
+      if (response) {
+        setMessages((prev) => [...prev, response]);
+      }
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          content:
-            "There was an error generating the response, please try again later",
-        },
-      ]);
+      console.error("Error getting AI response:", error);
+      // Optionally show error to user
     } finally {
       setIsGenerating(false);
     }
@@ -74,7 +72,7 @@ export default function ChatBot() {
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (isGenerating || !input || !user) return;
+      if (isGenerating || !input || !token) return;
       setIsGenerating(true);
       onSubmit(e);
     }
@@ -97,7 +95,7 @@ export default function ChatBot() {
           <ChatBubble variant="received">
             <ChatBubbleAvatar src="" fallback="🤖" />
             <ChatBubbleMessage>
-              {user == null
+              {token == null
                 ? "Please login to use the chat..."
                 : "Hello! I'm the AI assistant. How can I help you today?"}
             </ChatBubbleMessage>
@@ -159,7 +157,7 @@ export default function ChatBot() {
             className="absolute top-1/2 right-2 transform  -translate-y-1/2"
             type="submit"
             size="icon"
-            disabled={isGenerating || !input || user == null}
+            disabled={isGenerating || !input || token == null}
           >
             <Send className="size-4" />
           </Button>

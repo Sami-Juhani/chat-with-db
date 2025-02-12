@@ -1,12 +1,21 @@
+"""
+Routes for handling chat-based database queries using LangChain and OpenAI.
+This module provides endpoints for asking questions about the database using natural language,
+which are then processed by a RAG-enabled SQL agent to provide accurate responses.
+"""
+
 import os
 import asyncio
+import getpass
 from dotenv import load_dotenv
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 
-from models.agents import RagSqlAgent
+from ..services.agents import RagSqlAgent
+from ..models.db import get_user_with_orders
 
 load_dotenv()
 
@@ -36,26 +45,37 @@ ask_bp = Blueprint('ask_bp', __name__)
 
 
 @ask_bp.route('/ask', methods=['POST'])
+@jwt_required()  # This ensures the endpoint requires a valid JWT token
 def ask_question():
+    """
+    Handle ask request.
+
+    Args:
+        question (str): The question to ask
+
+    Returns:
+        jsonify: A JSON response with the ask result
+    """
     if request.method == 'OPTIONS':
         # Preflight response
         response = jsonify({})
         response.headers.add("Access-Control-Allow-Origin",
                              "http://localhost:3000")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Headers",
+                             "Content-Type,Authorization")  # Added Authorization
         response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
         return response
     else:
         data = request.get_json()
         question = data.get('question', '')
-        user = data.get('user')
 
-        if not question:
-            return jsonify({"error": "No question provided"}), 400
+        user_id = int(get_jwt_identity())
 
-        if not user:
-            return jsonify({"error": "No user provided"}), 400
+        user_data = get_user_with_orders(user_id)
 
-        response = asyncio.run(qa_agent.ask(user, question))
+        if not user_data:
+            return jsonify({"error": "User not found"}), 404
+
+        response = asyncio.run(qa_agent.ask(user_data, question))
 
         return jsonify({"response": response})
