@@ -24,6 +24,7 @@ This project explores AI automation techniques to query databases more efficient
 ### Backend
 - Flask
 - Flask-CORS
+- Flask JWT Extended
 - SQLAlchemy
 - Python 3.x
 - Various AI and database interaction libraries (e.g., LangChain)
@@ -122,9 +123,11 @@ The backend API will be available at `http://127.0.0.1:5000`
 
 1. Create a database on Neon and get the connection string
 
-2. Dump a database to a Neon database
+2. Install PostgreSQL CLI
+
+3. Dump a database to a Neon database
    ```bash
-   pg_dump -Fc -v -d <source_database_connection_string> -f ./backend/data/db/chat-with-db.sql
+   pg_restore -v -d <neon_database_connection_string> ./backend/data/db/chat-with-db.sql
    ```
 
 ## Docker Support
